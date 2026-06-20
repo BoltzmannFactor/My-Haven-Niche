@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { getData, addData } from '../lib/data';
+import { getData, addData } from './lib/data';
 
 interface Post {
   id: number;
