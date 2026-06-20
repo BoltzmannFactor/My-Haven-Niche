@@ -1,21 +1,47 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
+import { getData, addData } from '../lib/data';
+
+interface Post {
+  id: number;
+  content: string;
+  time: string;
+}
 
 export default function Home() {
-
   const [text, setText] = useState('');
-  const [posts, setPosts] = useState([
-    { id: 1, content: '今天开始学习 **Next.js** 了！🎉', time: '刚刚' },
-    { id: 2, content: '用 `Tailwind CSS` 写样式真的好快。', time: '5分钟前' }
-  ]);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const handlePublish = () => {
+  // 加载数据
+  useEffect(() => {
+    getData<Post>('shuoshuo').then(data => {
+      setPosts(data);
+      setLoading(false);
+    });
+  }, []);
+
+  // 发布说说
+  const handlePublish = async () => {
     if (!text.trim()) return;
-    setPosts([{ id: Date.now(), content: text, time: '刚刚' }, ...posts]);
-    setText('');
+    const success = await addData('shuoshuo', { content: text });
+    if (success) {
+      const newData = await getData<Post>('shuoshuo');
+      setPosts(newData);
+      setText('');
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen p-8 bg-gradient-to-br from-pink-100 to-blue-100 flex items-center justify-center">
+        <div className="text-gray-500">加载中...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen p-8 bg-gradient-to-br from-pink-100 to-blue-100">
       <div className="max-w-2xl mx-auto pt-8">
