@@ -7,7 +7,7 @@ export default function MaintenancePage() {
         <p className="text-xl opacity-80 mb-6">
           正在优化和升级，预计 2 小时后恢复
         </p>
-        <div className="text-sm opacity-60">⏰ 2026-06-20 恢复</div>
+        <div className="text-sm opacity-60">⏰ 预计 2026-06-20 恢复</div>
       </div>
     </div>
   );
