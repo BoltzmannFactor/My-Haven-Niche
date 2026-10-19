@@ -15,6 +15,9 @@
 
 # next.js
 /.next/
+# 本地清理构建缓存时临时改名留下的目录。
+# 必须忽略：Tailwind v4 会扫描未忽略的文件找类名，这些目录里的旧产物会被当成源码。
+/.next_old_*/
 /out/
 
 # production
@@ -32,6 +35,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -39,3 +43,15 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# obsidian
+# 用 Obsidian 打开本仓库作为 vault 时生成的配置目录，里面全是 json / md。
+# 必须忽略：既不该进版本库，也会被 Tailwind v4 当成源码扫描、产出非法类名。
+/.obsidian/
+
+# 本地智能体工作区（构建产物快照、lint 输出等），仅保留项目记忆
+/.workbuddy/*
+!/.workbuddy/memory/
+
+# 智能体临时工作树
+/.claude/worktrees/
