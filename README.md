@@ -12,7 +12,7 @@
 | 样式 | Tailwind CSS v4 + CSS 变量主题 |
 | 语言 | TypeScript（strict） |
 | 内容 | 仓库内 Markdown + gray-matter 解析 + react-markdown 渲染（含 remark-gfm，支持表格） |
-| 网页发布 | 口令鉴权 + GitHub Contents API 提交 md，不经过任何数据库 |
+| 存储 | 无数据库、无写接口 —— 构建期读取 Markdown，产出纯静态页面 |
 
 ## 本地运行
 
@@ -21,7 +21,7 @@ npm install
 npm run dev
 ```
 
-打开 http://localhost:3000 。不需要任何环境变量就能跑起来（此时说说页是只读的）。
+打开 http://localhost:3000 。不需要任何环境变量就能跑起来。
 
 ```bash
 npm run build   # 生产构建
@@ -34,14 +34,11 @@ npm run lint    # ESLint
 ```text
 app/
   page.tsx              首页（Server Component）
-  components/           导航、主题切换、开场动画、说说墙、归档浏览器等
+  components/           导航、主题切换、开场动画、归档浏览器等
   lib/
     content.ts          Markdown 加载器（含 fs，只能服务端用）
     format.ts           纯格式化函数（日期、分类名），客户端组件唯一可引用的工具模块
-    auth.ts             发布口令校验与会话签发（含 node:crypto，只能服务端用）
     theme.ts            主题常量与读写
-  api/session/route.ts  发布口令的登录 / 登出 / 状态查询
-  api/shuoshuo/route.ts 发布说说：鉴权后往仓库提交一个 Markdown 文件
   sitemap.ts robots.ts opengraph-image.tsx   SEO 三件套
   ...页面路由            /projects /archives /photos /music /realm /shuoshuo /essays /links /about
 content/
@@ -51,7 +48,7 @@ content/
 proxy.ts                维护模式开关（Next 16 起 middleware 更名为 proxy）
 ```
 
-> **依赖方向很重要**：客户端组件**不要**从 `lib/content.ts` 或 `lib/auth.ts` 导入任何东西（前者带 `fs`、后者带 `node:crypto`，构建直接失败）。日期/名字格式化请用 `lib/format.ts`。
+> **依赖方向很重要**：客户端组件**不要**从 `lib/content.ts` 导入任何东西（它带 `fs`，构建直接失败）。日期/名字格式化请用 `lib/format.ts`。
 
 ## 用 Obsidian 写内容
 
@@ -92,23 +89,13 @@ tags: [随笔, 建站]
 
 保存后开发服务器会自动热更新。`.obsidian/` 已在 `.gitignore` 里 —— 它里面全是 json 和 md，若被提交，Tailwind v4 会把它们当源码扫描并产出非法 CSS 类。
 
-## 在网页上发说说
+## 内容怎么到线上
 
-配齐 `POST_PASSWORD` / `AUTH_SECRET` / `GITHUB_TOKEN` / `GITHUB_REPO` 四个变量后，说说页会出现口令框。解锁后写的内容会作为一个 Markdown 文件提交到 `content/shuoshuo/`，文件名形如 `2026-10-18-224753.md`（北京时间，精确到秒，同天发多条也不撞名）。
+在 Obsidian 里写完保存 → Git 插件（最多 10 分钟后）自动 commit + push → GitHub 触发 Vercel 重建 → 全站更新。
 
-**一次提交同时完成两件事**：触发 Vercel 重建（访客看到）+ 落进仓库（Obsidian 下次 pull 拉到）。所以「发布」和「写进 Obsidian」是同一件事，不需要额外的双向同步逻辑。
+**端到端延迟约 1–3 分钟**。这是 Git 方案固有的代价，换来的是内容永不丢失、有完整版本历史、零基础设施成本 —— 站点上没有任何写接口，也就没有任何需要保护的东西。
 
-> **延迟约 1 分钟**：从提交到全站可见要等 Vercel 构建完。这是 Git 方案固有的代价，换来的是内容永不丢失、有完整版本历史、零基础设施成本。
-> 如果你发得很频繁，建议改回在 Obsidian 里写、让 Git 插件攒着批量推，能显著减少构建次数。
-
-## 鉴权
-
-`POST /api/shuoshuo` 需要会话，因为拿到它意味着能往仓库写文件。
-
-- 口令经 SHA-256 后做**恒定时间比对**（先摘要再比较，避免长度不等抛错、也避免明文长度泄漏）
-- 会话是 HMAC 签名的 **HttpOnly Cookie**，7 天有效，服务端无状态，适合 serverless
-- **失败即关闭**：`POST_PASSWORD` 或 `AUTH_SECRET` 缺一个，页面不显示发布框、接口一律拒绝
-- 限流：登录尝试 5 次/分钟，发布 10 条/分钟（按 IP，内存计数）
+> 每次 push 都会触发一次 Vercel 全站构建，所以不要把插件设成每次保存就推：高频推送会很快耗尽月度构建配额。
 
 ## 主题
 
@@ -124,19 +111,13 @@ tags: [随笔, 建站]
 
 | 变量 | 作用 | 不填会怎样 |
 | --- | --- | --- |
-| `POST_PASSWORD` | 网页发布说说的口令 | 与 `AUTH_SECRET` 缺一即关闭发布功能，站点只读 |
-| `AUTH_SECRET` | 会话 Cookie 的 HMAC 密钥 | 同上 |
-| `GITHUB_REPO` | 发布目标仓库，如 `owner/repo` | 能登录但发布时报 503 |
-| `GITHUB_TOKEN` | 只勾 Contents 写权限的 fine-grained PAT | 同上 |
 | `NEXT_PUBLIC_SITE_URL` | sitemap / robots / OG 图的绝对地址 | 生成的是 `https://example.com` |
 | `MAINTENANCE_MODE=1` | 全站跳到 `/maintenance` | 不开启维护模式 |
 | `NEXT_PUBLIC_MAINTENANCE_ETA` | 维护页的预计恢复时间 | 显示「完成后会立刻开放」 |
 
-> 前四个**绝不能**加 `NEXT_PUBLIC_` 前缀，否则会被打进浏览器 bundle。
-
 ## 部署
 
-Vercel：导入仓库后直接部署，push 即自动重建。至少填 `NEXT_PUBLIC_SITE_URL`；想启用网页发布再把另外四个补齐。
+Vercel：导入仓库后直接部署，push 即自动重建。只需要（也建议）填一个 `NEXT_PUBLIC_SITE_URL`，其余都可以不管。
 
 自建服务器：`npm run build && npm start`。
 
@@ -145,4 +126,4 @@ Vercel：导入仓库后直接部署，push 即自动重建。至少填 `NEXT_PU
 - 照片墙是占位胶片格，真实照片放到 `public/photos/` 后替换 `app/photos/page.tsx` 里的 `PHOTOS` 常量。
 - 文章没有独立详情页，列表页直接展示全文；内容变多之后建议加 `[slug]` 动态路由。
 - 本地清理构建缓存时如果看到 `mv .next .next_old_xxx`，记得那类目录必须留在 `.gitignore` 里——Tailwind v4 会扫描未忽略的文件找类名，旧产物会被当成源码，产出一堆非法 CSS 类。
-- 网页发布每次提交都会触发一次 Vercel 构建，高频使用会消耗月度构建配额。
+- Obsidian Git 每次 push 都会触发一次 Vercel 构建，同步间隔设得太短会消耗月度构建配额。

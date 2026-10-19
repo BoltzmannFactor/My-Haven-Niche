@@ -8,7 +8,7 @@ import { collectionLabel, formatShortDate } from './lib/format';
 // 这样首屏 HTML 就带着正文，SEO 和首屏速度都比原先「先渲染骨架再 fetch」更好。
 
 const features = [
-  { icon: '✧', title: '发布说说', desc: '随时记下此刻的思绪，支持 Markdown', href: '/shuoshuo#composer' },
+  { icon: '✎', title: '杂谈', desc: '写得长一点的思考', href: '/essays' },
   { icon: '·', title: '最近说说', desc: '', href: '/shuoshuo', dynamic: 'shuoshuo' },
   { icon: '♪', title: '音乐', desc: '森林里的钢琴曲', href: '/music' },
   { icon: '◈', title: '项目', desc: '用代码写诗', href: '/projects' },
@@ -60,7 +60,7 @@ export default function Home() {
         {latest.length === 0 ? (
           <p className="text-sm font-light text-[var(--text-secondary)] surface-card rounded-2xl p-6">
             还没有写下第一条。去
-            <Link href="/shuoshuo#composer" className="mx-1 text-[var(--accent)] underline underline-offset-4">
+            <Link href="/shuoshuo" className="mx-1 text-[var(--accent)] underline underline-offset-4">
               说说页
             </Link>
             写下此刻吧。
