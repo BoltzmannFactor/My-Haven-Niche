@@ -61,22 +61,17 @@ proxy.ts                维护模式开关（Next 16 起 middleware 更名为 pr
 
 选 `My-Haven-Niche` 这一层，不要选 `content/`。因为 **Obsidian Git 插件要求 vault 根目录就是 git 仓库**，开在 `content/` 这一层它找不到 `.git`。
 
-**2. 第一件事：排除无关目录**
+**2. 排除目录已经预置好了**
 
-`设置 → 文件与链接 → Excluded files` 里加上：
+仓库里带了 `.obsidian/app.json`，`Excluded files` 已填好 `node_modules` / `.next` / `.workbuddy` / `.git` 等，新建笔记默认落在 `content/shuoshuo`、附件落在 `content/assets`。首次打开就能用，不用再进设置里配。
 
-```text
-node_modules
-.next
-.workbuddy
-.git
-```
-
-这步不能省 —— `node_modules` 里有几百个 `.md` 文件，不排除会让 Obsidian 索引卡死。
+（这步不能省 —— `node_modules` 里有几百个 `.md` 文件，不排除会让 Obsidian 索引卡死。若你想确认：`设置 → 文件与链接 → Excluded files`。）
 
 **3. 装 Obsidian Git 插件**
 
-`commit-and-sync` 间隔建议设 **10 分钟**，不要设成每次保存就推。每次 push 都会触发一次 Vercel 全站构建，太频繁会很快耗尽月度构建配额。
+从 `设置 → 第三方插件 → 社区插件` 搜索 `Obsidian Git` 安装启用即可 —— 配置也已预置在 `.obsidian/plugins/obsidian-git/data.json`：commit / push / pull 间隔均 **10 分钟**、启动时自动 pull、push 前先 pull。
+
+不要设成每次保存就推：每次 push 都会触发一次 Vercel 全站构建，太频繁会很快耗尽月度构建配额。
 
 **4. 写**
 
