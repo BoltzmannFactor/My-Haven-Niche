@@ -2,7 +2,7 @@
 
 ## 技术基线
 - Next.js 16（App Router、Turbopack）+ React 19 + TypeScript strict + Tailwind v4
-- 内容全部是 `content/{shuoshuo,essays,projects}/*.md`，gray-matter 解析，react-markdown + remark-gfm 渲染
+- 内容全部是 `content/{shuoshuo,essays,projects,music}/*.md`，gray-matter 解析，react-markdown + remark-gfm 渲染
 - **无数据库、无写接口、纯静态**：内容在构建期从 `content/` 读入。
   2026-10-18 删掉 Redis 在线发布（`lib/cache.ts`、`api/data/`、依赖 `redis`/`@vercel/kv`）；
   2026-10-19 又删掉网页发布框与鉴权（`lib/auth.ts`、`api/session/`、`api/shuoshuo/`、`ShuoshuoBoard.tsx`，
@@ -10,7 +10,7 @@
   被删的这套实现留在 git 提交 `4e391e3`，需要时可 revert 找回。
 
 ## 必须遵守的边界
-1. **`app/lib/content.ts` 含 `fs`，禁止被客户端组件引用**（包括间接引用）。客户端需要日期/分类名，只能用 `app/lib/format.ts`。
+1. **`app/lib/content.ts` 与 `app/lib/music.ts` 含 `fs`，禁止被客户端组件引用**（包括间接引用）。客户端需要日期/分类名，只能用 `app/lib/format.ts`；只有 `import type` 安全（编译后会被擦除）。
 2. **主题只允许用 CSS 变量**：`var(--text-primary)` 这类；不要写死颜色，也不要在 `layout.tsx` 的 body 上挂 Tailwind 渐变色 class（会覆盖主题背景）。
 3. 主题状态是 `<html data-theme>`，由 `layout.tsx` 的 `<head>` 内联脚本在首帧前设置；组件读取用 `useSyncExternalStore`，不要在 effect 里 setState。
 4. 导航高度由 `--nav-h` 驱动（Navbar 用 ResizeObserver 写入），页面顶部间距不要写死 `pt-16`。
@@ -22,6 +22,18 @@
 ## 环境变量
 只剩三个可选：`NEXT_PUBLIC_SITE_URL` / `MAINTENANCE_MODE` / `NEXT_PUBLIC_MAINTENANCE_ETA`，见 `.env.example`。
 一个都不填站点也能正常部署运行。
+
+## 音乐播放
+- 歌单 = `content/music/*.md`，frontmatter 的 `tracks[].netease` 是网易云歌曲 id；加载器 `app/lib/music.ts`
+  **刻意不并入 `content.ts` 的 Collection**，否则归档页和标签云会混进歌单
+- 播放条 `MusicPlayer` 挂在 AppShell（layout 层）→ 路由切换不卸载，跨页连续播放。
+  状态用**模块级 external store + `useSyncExternalStore`**，不是 Context Provider ——
+  因为 lint 规则 `react-hooks/set-state-in-effect` 禁止在 effect 里 setState（读 localStorage 恢复状态会踩）
+- 高度写进 `--player-h`；`main` 的 class 是 `.app-main`，上下 padding 分别跟随 `--nav-h` 与 `--player-h`
+- **网易云外链 iframe 的三个坑（实测）**：① VIP 曲**静默失败**（`fee>0` 直接跳过，点了没反应也不报错），
+  选曲必须挑免费曲，付费的原版要换翻弹版；② 跨域 iframe 无法被父页面控制，切歌只能换 src（重载），
+  且 `auto=1` 基本无效（不继承父页用户激活）；③ 移动 UA 会被 302 到 `http://` 移动版而被混合内容拦截，
+  需判 UA 走 `https://music.163.com/m/outchain/player`。`height` 只认 32/66/90，其它值会变成 430 的大播放器
 
 ## Obsidian 约定
 - vault 根必须是**仓库根**（不是 `content/`），否则 Obsidian Git 插件找不到 `.git`

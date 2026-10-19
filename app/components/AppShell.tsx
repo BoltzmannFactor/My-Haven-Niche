@@ -3,6 +3,7 @@
 import { useCallback, useState } from 'react';
 import Navbar from './Navbar';
 import SplashScreen from './SplashScreen';
+import MusicPlayer from './MusicPlayer';
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   // SSR 阶段先渲染开场动画，服务端和客户端首帧一致，不会出现水合不匹配。
@@ -17,8 +18,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     <>
       {!dismissed && <SplashScreen onEnter={handleEnter} />}
       <Navbar />
-      {/* 顶部内边距跟随 Navbar 实测高度，避免导航换行后遮住正文 */}
-      <main className="pt-[var(--nav-h)] pb-16 min-h-screen">{children}</main>
+      {/* 顶部内边距跟随 Navbar 实测高度，底部跟随播放条高度，两者都不会遮住正文 */}
+      <main className="app-main">{children}</main>
+      {/* 播放条挂在 layout 这一层：路由切换时 AppShell 不卸载，
+          iframe 的 src 不变就能跨页连续播放 */}
+      <MusicPlayer />
     </>
   );
 }

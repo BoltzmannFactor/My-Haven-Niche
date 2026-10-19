@@ -34,9 +34,10 @@ npm run lint    # ESLint
 ```text
 app/
   page.tsx              首页（Server Component）
-  components/           导航、主题切换、开场动画、归档浏览器等
+  components/           导航、主题切换、开场动画、归档浏览器、底部播放条等
   lib/
     content.ts          Markdown 加载器（含 fs，只能服务端用）
+    music.ts            歌单加载器（含 fs，只能服务端用）
     format.ts           纯格式化函数（日期、分类名），客户端组件唯一可引用的工具模块
     theme.ts            主题常量与读写
   sitemap.ts robots.ts opengraph-image.tsx   SEO 三件套
@@ -45,10 +46,11 @@ content/
   shuoshuo/*.md         短句与碎片
   essays/*.md           长文杂谈
   projects/*.md         项目介绍
+  music/*.md            歌单（含曲目与网易云 id）
 proxy.ts                维护模式开关（Next 16 起 middleware 更名为 proxy）
 ```
 
-> **依赖方向很重要**：客户端组件**不要**从 `lib/content.ts` 导入任何东西（它带 `fs`，构建直接失败）。日期/名字格式化请用 `lib/format.ts`。
+> **依赖方向很重要**：客户端组件**不要**从 `lib/content.ts` 或 `lib/music.ts` 导入任何东西（它们带 `fs`，构建直接失败）。日期/名字格式化请用 `lib/format.ts`。类型可以用 `import type` 导入，编译后会被擦除。
 
 ## 用 Obsidian 写内容
 
@@ -96,6 +98,43 @@ tags: [随笔, 建站]
 **端到端延迟约 1–3 分钟**。这是 Git 方案固有的代价，换来的是内容永不丢失、有完整版本历史、零基础设施成本 —— 站点上没有任何写接口，也就没有任何需要保护的东西。
 
 > 每次 push 都会触发一次 Vercel 全站构建，所以不要把插件设成每次保存就推：高频推送会很快耗尽月度构建配额。
+
+## 音乐播放
+
+歌单也是 Markdown，放在 `content/music/`，跟文章一样用 Obsidian 维护：
+
+```markdown
+---
+title: 深夜写代码
+summary: 列表页显示的一句话
+date: 2026-10-19
+tags: [钢琴, 深夜]
+tracks:
+  - title: River Flows in You
+    artist: Yiruma
+    netease: 5312840
+    mood: 深夜写代码
+---
+
+正文（可选），支持 Markdown。
+```
+
+点任意一首，页面底部会出现一条常驻播放条。它挂在 `layout` 这一层，所以**切换页面时音乐不会中断**。
+
+### 曲目 id 怎么拿
+
+`netease` 填网易云的歌曲 id，从网页版地址里取 —— `music.163.com/#/song?id=5312840` 里的 `5312840` 就是。留空的条目会标记为不可播，并给一个「去网易云找 id」的搜索链接。
+
+### 一个硬性限制：只放能免费播放的曲子
+
+播放用的是网易云官方外链播放器（iframe），它对 VIP 曲目是**静默失败**的：点了播放没反应，也不报错（内部逻辑是 `fee > 0` 就直接跳过）。
+
+所以选曲时必须先在网易云里确认这首能免费听。原版是会员曲的话就换成翻弹版本 —— 现有歌单里的《Nuvole Bianche》和《Experience》用的就是翻弹版，Einaudi 的原版都是 VIP。
+
+### 另外两个已知边界
+
+- **换歌会让播放器重新载入**。跨域 iframe 取不到内部状态，父页面既读不到进度也没法调切歌，「上一首 / 下一首」只能靠替换 `src` 实现；重载后通常还要再点一下播放键，因为自动播放策略不认父页面的用户激活。
+- **移动端 UA 会被网易云 302 到 `http://` 的移动版**，在 HTTPS 页面里会因混合内容被拦而整块空白。播放器已判 UA 直接走 `https` 的移动版地址，但这条链路依赖对方不改动。
 
 ## 主题
 
