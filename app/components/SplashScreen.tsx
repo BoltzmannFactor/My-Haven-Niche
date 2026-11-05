@@ -89,7 +89,7 @@ export default function SplashScreen({ onEnter }: SplashScreenProps) {
         </h1>
         <div className="w-8 h-[1px] bg-[var(--text-primary)]/30 mx-auto mt-4" />
         <p className="text-[var(--text-faint)] text-sm font-light tracking-[0.2em] mt-4">
-          晨雾森林里的钢琴
+          把风的声音记下来
         </p>
       </div>
 
@@ -162,7 +162,7 @@ export default function SplashScreen({ onEnter }: SplashScreenProps) {
       </div>
 
       <p className="text-[var(--text-faint)] text-sm font-light mt-14 tracking-widest animate-pulse">
-        ✦ 聆听 · 森林在歌唱 ✦
+        ✦ 聆听 · 风在歌唱 ✦
       </p>
     </div>
   );

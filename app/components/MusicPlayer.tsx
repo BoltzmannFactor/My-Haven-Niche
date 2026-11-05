@@ -242,9 +242,9 @@ export default function MusicPlayer() {
       ref={barRef}
       role="region"
       aria-label="音乐播放器"
-      className="fixed bottom-0 left-0 w-full z-40 bg-[var(--nav-bg)] backdrop-blur-2xl border-t border-[var(--nav-border)] transition-colors duration-500"
+      className="fixed bottom-3 left-1/2 -translate-x-1/2 z-40 w-[min(42rem,calc(100%-1.5rem))] rounded-[2rem] border-2 border-[var(--card-border-strong)] bg-[var(--nav-bg)] shadow-[0_5px_0_var(--pop-shadow)] backdrop-blur-xl transition-colors duration-500"
     >
-      <div className="max-w-6xl mx-auto px-3 py-2">
+      <div className="px-4 py-2.5">
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-0.5 shrink-0">
             <button

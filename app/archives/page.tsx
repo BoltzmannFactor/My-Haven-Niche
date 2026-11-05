@@ -7,7 +7,12 @@ export const metadata: Metadata = {
   description: '所有说说、杂谈与项目，按时间整理，可按标签筛选和关键词搜索。',
 };
 
-export default function ArchivesPage() {
+export default async function ArchivesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tag?: string }>;
+}) {
+  const { tag } = await searchParams;
   const items: ArchiveItem[] = getAllContent().map((item) => ({
     id: item.id,
     title: item.title,
@@ -29,7 +34,7 @@ export default function ArchivesPage() {
         所有内容按时间整理，共 {items.length} 条。
       </p>
 
-      <ArchiveBrowser items={items} />
+      <ArchiveBrowser items={items} initialTag={tag ?? null} />
     </div>
   );
 }

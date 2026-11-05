@@ -14,9 +14,10 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? vercelUrl;
 // fonts.googleapis.com，在无法访问的环境会直接导致 build 失败。
 // 现改为 globals.css 中的系统字体栈（含中文），不依赖外网。
 
-// 首屏脚本必须在 CSS 生效前跑完，否则深色主题用户会先看到一帧浅色背景。
+// 首屏脚本必须在 CSS 生效前跑完，否则星空主题用户会先看到一帧白日背景。
 // 做法是在 <head> 内联一小段同步脚本，直接给 <html> 打上 data-theme。
-const themeInitScript = `(function(){try{var t=localStorage.getItem('windlog-theme');if(t==='fantasy'){document.documentElement.setAttribute('data-theme','fantasy');}}catch(e){}})();`;
+// 旧版主题名（forest/fantasy）在这里迁移映射成 day/night。
+const themeInitScript = `(function(){try{var t=localStorage.getItem('windlog-theme');if(t==='fantasy')t='night';else if(t==='forest')t='day';if(t==='night'||t==='day'){document.documentElement.setAttribute('data-theme',t);if(t!==localStorage.getItem('windlog-theme')){localStorage.setItem('windlog-theme',t);}}}catch(e){}})();`;
 
 // 同理，开场动画是否播放也在这里判定，见 globals.css 的 html[data-splash="done"]。
 const splashInitScript = `(function(){try{var seen=localStorage.getItem('windlog-splash-seen');var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;if(seen||reduce){document.documentElement.setAttribute('data-splash','done');}else{document.documentElement.setAttribute('data-splash','play');}}catch(e){document.documentElement.setAttribute('data-splash','play');}})();`;
@@ -45,7 +46,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#E8D5F5',
+  themeColor: '#FFF7EC',
   width: 'device-width',
   initialScale: 1,
 };

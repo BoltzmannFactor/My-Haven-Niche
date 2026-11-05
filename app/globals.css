@@ -1,255 +1,530 @@
 @import "tailwindcss";
 
-/* 主题由 <html data-theme="forest|fantasy"> 切换，两套变量集中在这里维护。
-   组件一律使用变量，不要再写死颜色，否则深色主题下会出现深灰字压深底。 */
+/* ==========================================================================
+   设计令牌层（Tailwind v4 的 @theme）—— 清新卡通风
+   --------------------------------------------------------------------------
+   - 视觉语言：白底卡片 + 2px 描边 + 实心错位阴影（贴纸感）、糖果色、Q 弹缓动。
+   - @theme        放静态值（字号/间距/圆角/缓动），生成工具类。
+   - @theme inline 放「桥接色」：把 var(--xxx) 内联进工具类，
+     <html data-theme> 一变（白日 day / 星空 night），工具类自动跟随。
+   - 语义变量层刻意保留了旧名字（--card-bg / --text-* / --accent 等），
+     这样还没来得及改写法的旧页面无需改动即可继承新配色。
+   ⚠️ 坑记录（已实测）：
+     1. --text-x: 1rem/1.8 斜杠语法会产出非法 CSS，必须拆成
+        --text-x + --text-x--line-height。
+     2. Tailwind 没有 --duration-* 命名空间，时长走普通 CSS 变量（--dur-*）。
+     3. 未分层（unlayered）的自定义 CSS 会压过所有 Tailwind 工具类，
+        语义类一律写进 @layer components。
+     4. @theme inline 的颜色不支持透明度修饰符（不能写 bg-surface/50）。
+   ========================================================================== */
+
+@theme {
+  /* 字号阶梯：基准 15px */
+  --text-micro: 0.6875rem;
+  --text-micro--line-height: 1.5;
+  --text-meta: 0.75rem;
+  --text-meta--line-height: 1.5;
+  --text-caption: 0.8125rem;
+  --text-caption--line-height: 1.6;
+  --text-body: 0.9375rem;
+  --text-body--line-height: 1.75;
+  --text-prose: 1rem;
+  --text-prose--line-height: 1.8;
+  --text-lead: 1.125rem;
+  --text-lead--line-height: 1.7;
+  --text-title-sm: 1.25rem;
+  --text-title-sm--line-height: 1.45;
+  --text-title: 1.5rem;
+  --text-title--line-height: 1.35;
+  --text-display: 1.875rem;
+  --text-display--line-height: 1.25;
+  --text-hero: clamp(2.1rem, 1.1rem + 5vw, 3.1rem);
+  --text-hero--line-height: 1.25;
+
+  /* 间距：4px 栅格 */
+  --spacing-card-sm: 1.25rem;
+  --spacing-card: 1.5rem;
+  --spacing-card-lg: 2rem;
+  --spacing-stack: 0.75rem;
+  --spacing-stack-lg: 1.5rem;
+  --spacing-section: 3.25rem;
+  --spacing-page-x: 1.5rem;
+
+  /* 圆角：卡通 = 大圆角 */
+  --radius-control: 1rem;
+  --radius-card: 1.375rem;
+  --radius-panel: 2rem;
+  --radius-chip: 9999px;
+
+  /* 缓动：Q 弹是卡通的魂 */
+  --ease-soft: cubic-bezier(.22, .61, .36, 1);
+  --ease-bounce: cubic-bezier(.34, 1.56, .64, 1);
+
+  /* 正文与导航共用同一个宽度 */
+  --container-page: 56rem;
+  --container-narrow: 44rem;
+
+  --font-body: var(--font-wind-sans);
+  --font-code: var(--font-wind-mono);
+}
+
+@theme inline {
+  --color-ink: var(--text-primary);
+  --color-ink-soft: var(--text-secondary);
+  --color-ink-faint: var(--text-faint);
+  --color-line: var(--card-border);
+  --color-line-strong: var(--card-border-strong);
+  --color-surface: var(--card-bg);
+  --color-surface-hover: var(--card-bg-hover);
+  /* accent 做装饰，可点文字用更深的 accent-link（白日主题下达标 4.5:1） */
+  --color-accent: var(--accent);
+  --color-accent-link: var(--accent-link);
+  --color-accent-soft: var(--accent-soft);
+  --color-code-bg: var(--code-bg);
+  --color-divider: var(--divider);
+  --color-nav-text: var(--nav-text);
+  --color-nav-text-hover: var(--nav-text-hover);
+}
+
+/* ==========================================================================
+   主题变量层：<html data-theme="day|night">（旧值 forest/fantasy 会由
+   layout 的内联脚本迁移映射到 day/night）
+   ========================================================================== */
+
 :root,
-[data-theme="forest"] {
-  --bg-start: #E8D5F5;
-  --bg-mid: #C5D9F2;
-  --bg-end: #D4E9E2;
+[data-theme="day"] {
+  --bg-start: #FFF7EC;
+  --bg-mid: #E9F8F4;
+  --bg-end: #E7F1FF;
 
-  --card-bg: rgba(255, 255, 255, 0.25);
-  --card-bg-hover: rgba(255, 255, 255, 0.38);
-  --card-border: rgba(255, 255, 255, 0.3);
+  /* 描边墨色与文字 */
+  --ink: #454B66;
+  --text-primary: #333952;
+  --text-secondary: rgba(51, 57, 82, 0.75);
+  --text-faint: rgba(51, 57, 82, 0.55);
 
-  --text-primary: #1E1E2A;
-  --text-secondary: rgba(30, 30, 42, 0.6);
-  --text-faint: rgba(30, 30, 42, 0.35);
+  --card-bg: #FFFFFF;
+  --card-bg-hover: #FFFDF7;
+  --card-border: rgba(69, 75, 102, 0.55);   /* 旧页面的 1px 边框也带描边感 */
+  --card-border-strong: rgba(69, 75, 102, 0.9);
 
-  --accent: #FCD34D;
-  --accent-soft: rgba(252, 211, 77, 0.25);
+  --accent: #FF8A65;        /* 珊瑚：装饰用 */
+  --accent-link: #C2410C;   /* 可点文字：白底上 ~5:1 */
+  --accent-soft: rgba(255, 138, 101, 0.16);
 
-  --nav-bg: rgba(255, 255, 255, 0.1);
-  --nav-border: rgba(255, 255, 255, 0.2);
-  --nav-text: rgba(30, 30, 42, 0.45);
-  --nav-text-hover: rgba(30, 30, 42, 0.75);
-  --nav-text-active: rgba(30, 30, 42, 0.9);
-  --nav-active-bg: rgba(255, 255, 255, 0.3);
-  --nav-hover-bg: rgba(255, 255, 255, 0.2);
+  --nav-bg: rgba(255, 255, 255, 0.92);
+  --nav-border: rgba(69, 75, 102, 0.9);
+  --nav-text: rgba(51, 57, 82, 0.72);
+  --nav-text-hover: rgba(51, 57, 82, 1);
+  --nav-text-active: rgba(51, 57, 82, 1);
+  --nav-active-bg: #FFF3CF;
+  --nav-hover-bg: rgba(69, 75, 102, 0.08);
 
-  --code-bg: rgba(0, 0, 0, 0.06);
-  --divider: rgba(30, 30, 42, 0.12);
+  --shadow-tint: rgba(69, 75, 102, 0.16);
+  --pop-shadow: rgba(69, 75, 102, 0.16);
+  --code-bg: rgba(69, 75, 102, 0.07);
+  --divider: rgba(69, 75, 102, 0.14);
+
+  /* 糖果色（两主题共用）与对应的淡底 */
+  --pop-1: #FF8A65;
+  --pop-2: #4ECDC4;
+  --pop-3: #FFD166;
+  --pop-4: #8AB6FF;
+  --pop-5: #C9A7F5;
+  --tint-1: #FFE9E1;
+  --tint-2: #DFF7F5;
+  --tint-3: #FFF3CF;
+  --tint-4: #E3EEFF;
+  --tint-5: #F0E6FD;
+
+  --hill-1: #BFE8D8;
+  --hill-2: #A8DCC4;
+  --tape-bg: #F7EFDF;
 }
 
-[data-theme="fantasy"] {
-  --bg-start: #0F0C1A;
-  --bg-mid: #0F0C1A;
-  --bg-end: #0F0C1A;
+[data-theme="night"] {
+  --bg-start: #262A5C;
+  --bg-mid: #1B1F48;
+  --bg-end: #131635;
 
-  --card-bg: rgba(255, 255, 255, 0.08);
-  --card-bg-hover: rgba(255, 255, 255, 0.14);
-  --card-border: rgba(228, 199, 138, 0.15);
+  --ink: #F2EFFF;
+  --text-primary: #F2EFFF;
+  --text-secondary: rgba(235, 232, 252, 0.75);
+  --text-faint: rgba(225, 220, 248, 0.55);
 
-  --text-primary: #FFFFFF;
-  --text-secondary: rgba(255, 255, 255, 0.62);
-  --text-faint: rgba(255, 255, 255, 0.35);
+  --card-bg: rgba(255, 255, 255, 0.07);
+  --card-bg-hover: rgba(255, 255, 255, 0.12);
+  --card-border: rgba(255, 255, 255, 0.35);
+  --card-border-strong: rgba(255, 255, 255, 0.6);
 
-  --accent: #E4C78A;
-  --accent-soft: rgba(228, 199, 138, 0.18);
+  --accent: #FF9A76;
+  --accent-link: #FFC3A8;   /* 深底上要亮不要深 */
+  --accent-soft: rgba(255, 154, 118, 0.18);
 
-  --nav-bg: rgba(15, 12, 26, 0.8);
-  --nav-border: rgba(228, 199, 138, 0.1);
-  --nav-text: rgba(196, 181, 212, 0.45);
-  --nav-text-hover: rgba(228, 199, 138, 0.8);
-  --nav-text-active: #E4C78A;
-  --nav-active-bg: rgba(228, 199, 138, 0.12);
-  --nav-hover-bg: rgba(228, 199, 138, 0.06);
+  --nav-bg: rgba(30, 33, 74, 0.9);
+  --nav-border: rgba(255, 255, 255, 0.6);
+  --nav-text: rgba(225, 220, 248, 0.72);
+  --nav-text-hover: #F2EFFF;
+  --nav-text-active: #FFFFFF;
+  --nav-active-bg: rgba(255, 209, 102, 0.16);
+  --nav-hover-bg: rgba(255, 255, 255, 0.08);
 
-  --code-bg: rgba(255, 255, 255, 0.08);
-  --divider: rgba(255, 255, 255, 0.12);
+  --shadow-tint: rgba(0, 0, 0, 0.45);
+  --pop-shadow: rgba(0, 0, 0, 0.45);
+  --code-bg: rgba(255, 255, 255, 0.09);
+  --divider: rgba(255, 255, 255, 0.2);
+
+  --tint-1: rgba(255, 138, 101, 0.18);
+  --tint-2: rgba(78, 205, 196, 0.16);
+  --tint-3: rgba(255, 209, 102, 0.16);
+  --tint-4: rgba(138, 182, 255, 0.16);
+  --tint-5: rgba(201, 167, 245, 0.18);
+
+  --hill-1: #2C3168;
+  --hill-2: #23285A;
+  --tape-bg: #2E2E52;
 }
 
-/* 不依赖外网的字体栈：英文走系统 UI 字体，中文走苹方 / 微软雅黑 / Noto。
-   原本用 next/font/google 加载 Geist，但构建时需要访问 fonts.googleapis.com，
-   网络不可达时会直接导致 build 失败，故改为系统字体栈。 */
+/* ==========================================================================
+   运行时 / 布局变量
+   ========================================================================== */
+
 :root {
-  --font-geist-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+  /* 系统字体栈，不依赖外网（next/font/google 教训见 layout.tsx） */
+  --font-wind-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
     "Noto Sans SC", sans-serif;
-  --font-geist-mono: ui-monospace, SFMono-Regular, Menlo, Consolas,
+  --font-wind-mono: ui-monospace, SFMono-Regular, Menlo, Consolas,
     "Liberation Mono", "Courier New", monospace;
 
-  /* 导航栏真实高度由 Navbar 用 ResizeObserver 写入；这里是 SSR / JS 未就绪时的兜底值 */
-  --nav-h: 104px;
-  /* 底部播放条高度由 MusicPlayer 写入；未播放时为 0，不留白 */
+  --dur-1: 140ms;
+  --dur-2: 240ms;
+  --dur-3: 380ms;
+  --dur-4: 600ms;
+
+  --space-nav-gap: 1.5rem;
+
+  --blur-overlay: 12px;
+  --blur-surface: 0px; /* 卡通卡片是实色，不需要毛玻璃 */
+
+  /* 导航是单行悬浮胶囊；真实高度由 Navbar 写入（含顶部偏移） */
+  --nav-h: 92px;
   --player-h: 0px;
 }
 
-/* 主内容区：上下留白分别跟随导航条与播放条的实测高度 */
-.app-main {
-  padding-top: var(--nav-h);
-  padding-bottom: calc(var(--player-h) + 2rem);
-  min-height: 100vh;
-}
-
-/* 播放条上的小按钮 */
-.player-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 1.75rem;
-  height: 1.75rem;
-  padding: 0 0.35rem;
-  border-radius: 9999px;
-  font-size: 0.75rem;
-  line-height: 1;
-  color: var(--text-secondary);
-  transition: color 0.3s ease, background-color 0.3s ease;
-}
-.player-btn:hover:not(:disabled) {
-  color: var(--text-primary);
-  background: var(--nav-hover-bg);
-}
-.player-btn:disabled {
-  opacity: 0.35;
-  cursor: default;
-}
-
-/* 已经看过开场动画时，<head> 里的内联脚本会给 html 打上 data-splash="done"，
-   在首帧绘制前就把开场层隐藏掉，避免老访客看到一闪而过的 splash。 */
+/* 已经看过开场动画时隐藏 splash（必须保持未分层） */
 html[data-splash="done"] #splash-root {
   display: none;
 }
 
 body {
-  background: linear-gradient(135deg, var(--bg-start), var(--bg-mid), var(--bg-end));
+  background: linear-gradient(180deg, var(--bg-start), var(--bg-mid) 45%, var(--bg-end));
   background-attachment: fixed;
   color: var(--text-primary);
-  font-family: var(--font-geist-sans);
-  transition: background 0.6s ease, color 0.6s ease;
+  font-family: var(--font-wind-sans);
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
+  transition: background var(--dur-4) ease, color var(--dur-4) ease;
   min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* 星空主题的星星：两层错位重复的径向渐变点 */
+[data-theme="night"] body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(1.6px 1.6px at 22% 28%, rgba(255, 255, 255, 0.9), transparent 60%),
+    radial-gradient(1.2px 1.2px at 68% 12%, rgba(255, 255, 255, 0.7), transparent 60%),
+    radial-gradient(1.8px 1.8px at 84% 46%, rgba(255, 255, 255, 0.8), transparent 60%),
+    radial-gradient(1.1px 1.1px at 40% 64%, rgba(255, 255, 255, 0.6), transparent 60%),
+    radial-gradient(1.5px 1.5px at 8% 80%, rgba(255, 255, 255, 0.75), transparent 60%);
+  background-size: 340px 300px, 420px 380px;
+  background-repeat: repeat;
 }
 
 ::selection {
-  background: var(--accent-soft);
+  background: var(--pop-3);
+  color: #333952;
 }
 
-/* 卡片与输入框的统一外观：颜色全部走变量，主题切换自动生效 */
-.surface-card {
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  backdrop-filter: blur(10px);
-}
-.surface-input {
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  color: var(--text-primary);
-  caret-color: var(--accent);
-}
-.surface-input::placeholder {
-  color: var(--text-faint);
-}
-
-/* 键盘可达性：统一焦点样式 */
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 3px solid var(--pop-2);
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: 6px;
 }
 
-@keyframes fadeInUp {
-  from {
+/* ==========================================================================
+   语义类（@layer components，让工具类仍能覆盖）
+   ========================================================================== */
+
+@layer components {
+  /* 主内容区：上下留白跟随导航与播放条实测高度 */
+  .app-main {
+    padding-top: calc(var(--nav-h) + var(--space-nav-gap));
+    padding-bottom: calc(var(--player-h) + 2.5rem);
+    min-height: 100vh;
+  }
+
+  /* 兼容层：旧的 surface-card 直接升级成贴纸卡 */
+  .surface-card {
+    background: var(--card-bg);
+    border: 2px solid var(--card-border-strong);
+    border-radius: var(--radius-card);
+    box-shadow: 0 6px 0 var(--pop-shadow);
+    transition: transform var(--dur-2) var(--ease-bounce),
+      box-shadow var(--dur-2) var(--ease-bounce),
+      background var(--dur-4) ease;
+  }
+  .surface-card:hover {
+    transform: translateY(-3px) rotate(-0.5deg);
+    box-shadow: 0 10px 0 var(--pop-shadow);
+  }
+
+  .surface-input {
+    background: var(--card-bg);
+    border: 2px solid var(--card-border-strong);
+    border-radius: var(--radius-control);
+    color: var(--text-primary);
+    caret-color: var(--accent);
+  }
+  .surface-input::placeholder {
+    color: var(--text-faint);
+  }
+
+  /* 播放条上的小圆按钮 */
+  .player-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.9rem;
+    height: 1.9rem;
+    padding: 0 0.35rem;
+    border-radius: 9999px;
+    border: 2px solid var(--card-border-strong);
+    background: var(--card-bg);
+    font-size: 0.75rem;
+    line-height: 1;
+    color: var(--text-secondary);
+    transition: color var(--dur-2) ease, background-color var(--dur-2) ease,
+      transform var(--dur-2) var(--ease-bounce);
+  }
+  .player-btn:hover:not(:disabled) {
+    color: var(--text-primary);
+    background: var(--nav-hover-bg);
+    transform: rotate(-6deg) scale(1.06);
+  }
+  .player-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  /* 贴纸卡（新组件用） */
+  .card-pop {
+    border-radius: var(--radius-card);
+    background: var(--card-bg);
+    border: 2px solid var(--card-border-strong);
+    box-shadow: 0 6px 0 var(--pop-shadow);
+    transition: transform var(--dur-2) var(--ease-bounce),
+      box-shadow var(--dur-2) var(--ease-bounce),
+      background var(--dur-4) ease;
+  }
+  .card-pop-hover:hover {
+    transform: translateY(-3px) rotate(-0.5deg);
+    box-shadow: 0 10px 0 var(--pop-shadow);
+  }
+
+  /* 糖果 chip / 胶囊按钮 */
+  .chip-pop {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.28rem 0.85rem;
+    border-radius: 9999px;
+    border: 2px solid var(--card-border-strong);
+    font-size: var(--text-caption);
+    font-weight: 700;
+    color: var(--text-primary);
+    background: var(--card-bg);
+    box-shadow: 0 3px 0 var(--pop-shadow);
+    transition: transform var(--dur-2) var(--ease-bounce),
+      box-shadow var(--dur-2) var(--ease-bounce),
+      background var(--dur-4) ease;
+  }
+  .chip-pop:hover {
+    transform: translateY(-3px) rotate(-2deg);
+    box-shadow: 0 6px 0 var(--pop-shadow);
+  }
+
+  .btn-pop {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.6rem 1.3rem;
+    border-radius: 9999px;
+    border: 2px solid var(--card-border-strong);
+    font-size: var(--text-caption);
+    font-weight: 800;
+    box-shadow: 0 4px 0 var(--card-border-strong);
+    transition: transform var(--dur-2) var(--ease-bounce),
+      box-shadow var(--dur-2) var(--ease-bounce),
+      background var(--dur-4) ease;
+  }
+  .btn-pop:hover { transform: translateY(-2px) rotate(-1deg); box-shadow: 0 6px 0 var(--card-border-strong); }
+  .btn-pop:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--card-border-strong); }
+  .btn-pop-primary { background: var(--pop-1); color: #FFFFFF; }
+  .btn-pop-mint { background: var(--pop-2); color: #12333A; }
+  .btn-pop-ghost { background: var(--card-bg); color: var(--text-primary); }
+
+  /* 马克笔高亮 */
+  .hl {
+    background: linear-gradient(transparent 58%, var(--pop-3) 58%, var(--pop-3) 94%, transparent 94%);
+    border-radius: 4px;
+    padding-inline: 0.1em;
+  }
+
+  /* 通用交互过渡 */
+  .t-ui {
+    transition-property: color, background-color, border-color, opacity, box-shadow, transform;
+    transition-duration: var(--dur-2);
+    transition-timing-function: var(--ease-bounce);
+  }
+  .t-color {
+    transition-property: color, background-color, border-color;
+    transition-duration: var(--dur-1);
+    transition-timing-function: var(--ease-soft);
+  }
+
+  .no-scrollbar { scrollbar-width: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+
+  /* 漂浮动效（吉祥物 / 贴纸） */
+  .floaty { animation: floaty 4.5s ease-in-out infinite alternate; }
+  @keyframes floaty {
+    from { transform: translateY(0) rotate(-2deg); }
+    to   { transform: translateY(-10px) rotate(3deg); }
+  }
+  .wiggle { animation: wiggle 3s ease-in-out infinite alternate; }
+  @keyframes wiggle {
+    from { transform: rotate(-8deg); }
+    to   { transform: rotate(8deg); }
+  }
+
+  /* 滚动进场 */
+  .reveal {
     opacity: 0;
-    transform: translateY(30px);
+    transform: translateY(16px) scale(0.98);
+    transition: opacity var(--dur-3) var(--ease-soft),
+      transform var(--dur-3) var(--ease-bounce);
   }
-  to {
+  .reveal.is-in {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
+  }
+
+  /* Markdown 正文排版 */
+  .markdown-body {
+    font-family: var(--font-body);
+    font-size: var(--text-prose);
+    line-height: var(--text-prose--line-height);
+    color: var(--text-secondary);
+  }
+  .markdown-body > * + * {
+    margin-top: 0.95rem;
+  }
+  .markdown-body p {
+    font-weight: 400;
+  }
+  .markdown-body strong {
+    color: var(--text-primary);
+    font-weight: 700;
+  }
+  .markdown-body a {
+    color: var(--accent-link);
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .markdown-body code {
+    font-family: var(--font-code);
+    font-size: 0.85em;
+    background: var(--code-bg);
+    padding: 0.15em 0.4em;
+    border-radius: 6px;
+  }
+  .markdown-body pre {
+    background: var(--code-bg);
+    border: 2px solid var(--card-border-strong);
+    border-radius: var(--radius-control);
+    padding: 0.9rem 1rem;
+    overflow-x: auto;
+  }
+  .markdown-body pre code {
+    background: none;
+    padding: 0;
+  }
+  .markdown-body ul,
+  .markdown-body ol {
+    padding-left: 1.3rem;
+  }
+  .markdown-body ul { list-style: disc; }
+  .markdown-body ol { list-style: decimal; }
+  .markdown-body blockquote {
+    border-left: 4px solid var(--accent);
+    padding-left: 1rem;
+    color: var(--text-faint);
+  }
+  .markdown-body h1 { font-size: var(--text-title); line-height: 1.35; }
+  .markdown-body h2 { font-size: var(--text-title-sm); line-height: 1.45; }
+  .markdown-body h3 { font-size: var(--text-body); line-height: 1.6; }
+  .markdown-body h1,
+  .markdown-body h2,
+  .markdown-body h3 {
+    color: var(--text-primary);
+    font-weight: 700;
+    margin-top: 1.6em;
+  }
+  .markdown-body hr {
+    border: 0;
+    border-top: 2px dashed var(--divider);
+  }
+  .markdown-body table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9em;
+    display: block;
+    overflow-x: auto;
+  }
+  .markdown-body th,
+  .markdown-body td {
+    border: 1.5px solid var(--divider);
+    padding: 0.4rem 0.75rem;
+    text-align: left;
+  }
+  .markdown-body th {
+    color: var(--text-primary);
+    font-weight: 700;
   }
 }
 
-.animate-fade-in-up {
-  animation: fadeInUp 0.8s ease-out forwards;
-}
-
-/* Markdown 正文排版（未使用 typography 插件，手写一套精简样式） */
-.markdown-body {
-  font-family: var(--font-geist-sans);
-  line-height: 1.8;
-  color: var(--text-secondary);
-}
-.markdown-body > * + * {
-  margin-top: 0.85rem;
-}
-.markdown-body p {
-  font-weight: 300;
-}
-.markdown-body strong {
-  color: var(--text-primary);
-  font-weight: 500;
-}
-.markdown-body a {
-  color: var(--accent);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-.markdown-body code {
-  font-family: var(--font-geist-mono);
-  font-size: 0.85em;
-  background: var(--code-bg);
-  padding: 0.15em 0.4em;
-  border-radius: 4px;
-}
-.markdown-body pre {
-  background: var(--code-bg);
-  padding: 0.9rem 1rem;
-  border-radius: 10px;
-  overflow-x: auto;
-}
-.markdown-body pre code {
-  background: none;
-  padding: 0;
-}
-.markdown-body ul,
-.markdown-body ol {
-  padding-left: 1.3rem;
-}
-.markdown-body ul {
-  list-style: disc;
-}
-.markdown-body ol {
-  list-style: decimal;
-}
-.markdown-body blockquote {
-  border-left: 2px solid var(--accent);
-  padding-left: 1rem;
-  color: var(--text-faint);
-}
-.markdown-body h1,
-.markdown-body h2,
-.markdown-body h3 {
-  color: var(--text-primary);
-  font-weight: 500;
-}
-.markdown-body hr {
-  border: 0;
-  border-top: 1px solid var(--divider);
-}
-/* GFM 表格（依赖 remark-gfm 插件） */
-.markdown-body table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9em;
-  display: block;
-  overflow-x: auto;
-}
-.markdown-body th,
-.markdown-body td {
-  border: 1px solid var(--divider);
-  padding: 0.4rem 0.75rem;
-  text-align: left;
-}
-.markdown-body th {
-  color: var(--text-primary);
-  font-weight: 500;
-}
-
+/* 尊重系统的「减少动效」设置：动画退场，贴纸卡回正 */
 @media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+  .reveal {
+    opacity: 1;
+    transform: none;
+  }
+  .surface-card:hover,
+  .card-pop-hover:hover {
+    transform: none;
   }
 }

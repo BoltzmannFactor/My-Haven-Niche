@@ -19,9 +19,16 @@ export interface ArchiveItem {
  * 归档浏览器：数据源在服务端一次性算好（保持静态渲染），
  * 搜索与标签筛选都在客户端做，不需要再发请求。
  */
-export default function ArchiveBrowser({ items }: { items: ArchiveItem[] }) {
+export default function ArchiveBrowser({
+  items,
+  initialTag = null,
+}: {
+  items: ArchiveItem[];
+  /** 从首页标签云带进来的预选标签（/archives?tag=xxx） */
+  initialTag?: string | null;
+}) {
   const [query, setQuery] = useState('');
-  const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [activeTag, setActiveTag] = useState<string | null>(initialTag);
 
   const tags = useMemo(() => {
     const counter = new Map<string, number>();

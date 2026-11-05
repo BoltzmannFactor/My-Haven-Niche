@@ -23,7 +23,7 @@ export default function Image() {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundImage: 'linear-gradient(135deg, #E8D5F5 0%, #C5D9F2 50%, #D4E9E2 100%)',
+          backgroundImage: 'linear-gradient(135deg, #FFF7EC 0%, #E9F8F4 50%, #E7F1FF 100%)',
         }}
       >
         <div
@@ -56,7 +56,7 @@ export default function Image() {
             opacity: 0.45,
           }}
         >
-          A piano in the misty forest
+          A happy little corner of the web
         </div>
       </div>
     ),
