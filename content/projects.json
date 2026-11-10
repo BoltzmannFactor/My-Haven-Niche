@@ -9,14 +9,15 @@
       "summary": "你正在看的这个站：纯静态、双主题、在 Obsidian 里写完推上去就上线。",
       "status": "进行中",
       "started": "2026-07-01",
-      "updated": "2026-11-05",
+      "updated": "2026-11-10",
       "stack": ["Next.js", "React", "TypeScript", "Tailwind CSS"],
       "tags": ["Next.js", "静态站点", "Obsidian"],
       "repo": "https://github.com/BoltzmannFactor/My-Haven-Niche",
       "icon": "🌬️",
       "accent": 4,
       "featured": true,
-      "source": "C:\\Users\\34580\\My-Haven-Niche"
+      "source": "C:\\Users\\34580\\My-Haven-Niche",
+      "version": "0.1.0"
     },
     {
       "id": "guifan",
@@ -38,14 +39,15 @@
       "summary": "一个用 Web 技术写、再套壳成 APK 的多房间沉浸式应用。",
       "status": "维护中",
       "started": "2026-08-21",
-      "updated": "2026-08-21",
+      "updated": "2026-08-22",
       "stack": ["React", "Vite", "TypeScript", "Capacitor"],
       "tags": ["React", "TypeScript", "Capacitor", "Android"],
       "repo": "",
       "icon": "🌊",
       "accent": 1,
       "featured": false,
-      "source": "C:\\Users\\34580\\Downloads\\Ocean-main\\Ocean-main"
+      "source": "C:\\Users\\34580\\Downloads\\Ocean-main\\Ocean-main",
+      "version": "0.1.1"
     }
   ]
 }
