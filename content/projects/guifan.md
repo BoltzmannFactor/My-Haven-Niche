@@ -1,13 +1,3 @@
----
-title: 归帆 · 人生游戏系统
-summary: 把日常任务做成「出海—归航」节奏的 Android 原生应用。
-date: 2026-10-05
-tags: [Android, Kotlin, Compose]
-status: 进行中
-stack: [Kotlin, Jetpack Compose, WorkManager, Room]
-link: https://github.com/
----
-
 一个用 Kotlin + Jetpack Compose 写的原生 Android 应用，在 vue（曾经的前端原型）之后重写的第二版。
 
 ## 设计内核

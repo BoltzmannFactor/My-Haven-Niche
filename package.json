@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "sync:projects": "node scripts/sync-projects.mjs",
+    "sync:projects:push": "node scripts/sync-projects.mjs --push"
   },
   "dependencies": {
     "gray-matter": "^4.0.3",

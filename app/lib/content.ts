@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import matter from 'gray-matter';
+import { getProjects } from './projects';
 
 /**
  * 内容管线：所有文章都放在 content/<collection>/*.md，
@@ -12,6 +13,11 @@ import matter from 'gray-matter';
  */
 
 export type Collection = 'shuoshuo' | 'essays' | 'projects';
+
+/** 仍然用 Markdown 目录管理的集合；projects 已迁到 content/projects.json */
+type MarkdownCollection = Exclude<Collection, 'projects'>;
+
+const ALL_COLLECTIONS: Collection[] = ['shuoshuo', 'essays', 'projects'];
 
 export interface ContentItem {
   /** 文件名去掉 .md，同时用作锚点 id */
@@ -35,15 +41,14 @@ export interface ContentItem {
 // 进而去追溯整个项目并告警。这里显式关掉它的追踪即可 ——
 // content/ 目录的打包另有 next.config.ts 的 outputFileTracingIncludes 负责。
 // 注意：加注释必须保持这个写法（紧贴 process.cwd() 之前），否则 Turbopack 识别不到。
-const DIRECTORIES: Record<Collection, string> = {
+const DIRECTORIES: Record<MarkdownCollection, string> = {
   shuoshuo: path.join(/*turbopackIgnore: true*/ process.cwd(), 'content', 'shuoshuo'),
   essays: path.join(/*turbopackIgnore: true*/ process.cwd(), 'content', 'essays'),
-  projects: path.join(/*turbopackIgnore: true*/ process.cwd(), 'content', 'projects'),
 };
 
 // Turbopack 要求 path.join 的参数是可静态分析的字面量，
 // 所以目录写死在上面这张表里，不要在运行时拼变量。
-function directoryOf(collection: Collection): string {
+function directoryOf(collection: MarkdownCollection): string {
   return DIRECTORIES[collection];
 }
 
@@ -77,7 +82,29 @@ function toStringOrUndefined(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 
+/**
+ * projects 的数据源是 content/projects.json（项目工作台），
+ * 这里把它映射成统一的 ContentItem，好让归档 / 标签云 / 首页统计照旧工作。
+ */
+function projectsAsContent(): ContentItem[] {
+  return getProjects().map((project) => ({
+    id: project.id,
+    collection: 'projects',
+    title: project.title,
+    summary: project.summary,
+    content: project.content,
+    date: toDate(project.updated || project.started),
+    tags: project.tags,
+    href: `/projects#${project.id}`,
+    link: project.repo ?? project.demo,
+    stack: project.stack,
+    status: project.status,
+  }));
+}
+
 export function getCollection(collection: Collection): ContentItem[] {
+  if (collection === 'projects') return projectsAsContent();
+
   const directory = directoryOf(collection);
   if (!exists(directory)) return [];
 
@@ -109,9 +136,9 @@ export function getCollection(collection: Collection): ContentItem[] {
 
 /** 全部内容，按时间倒序 —— 归档页的数据源 */
 export function getAllContent(): ContentItem[] {
-  return (Object.keys(DIRECTORIES) as Collection[])
-    .flatMap((collection) => getCollection(collection))
-    .sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
+  return ALL_COLLECTIONS.flatMap((collection) => getCollection(collection)).sort(
+    (a, b) => Date.parse(b.date) - Date.parse(a.date),
+  );
 }
 
 export function getLatest(collection: Collection, limit: number): ContentItem[] {

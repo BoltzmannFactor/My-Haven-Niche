@@ -37,6 +37,7 @@ app/
   components/           导航、主题切换、开场动画、归档浏览器、底部播放条等
   lib/
     content.ts          Markdown 加载器（含 fs，只能服务端用）
+    projects.ts         项目工作台加载器（读 content/projects.json，含 fs）
     music.ts            歌单加载器（含 fs，只能服务端用）
     format.ts           纯格式化函数（日期、分类名），客户端组件唯一可引用的工具模块
     theme.ts            主题常量与读写
@@ -45,8 +46,11 @@ app/
 content/
   shuoshuo/*.md         短句与碎片
   essays/*.md           长文杂谈
-  projects/*.md         项目介绍
+  projects.json         项目工作台：全站唯一项目数据源（/projects 直接渲染它）
+  projects/<id>.md      项目长笔记（可选，正文会折叠在项目卡片里）
   music/*.md            歌单（含曲目与网易云 id）
+scripts/
+  sync-projects.mjs     项目自动同步：扫 source 目录 → 刷新 updated/version → 提交推送
 proxy.ts                维护模式开关（Next 16 起 middleware 更名为 proxy）
 ```
 
@@ -87,7 +91,7 @@ tags: [随笔, 建站]
 正文支持 **加粗**、*斜体*、`代码`、列表、引用、表格和代码块。
 ```
 
-文件名去掉 `.md` 就是它的 id（也用作页面锚点）。项目页额外支持 `status`、`stack`、`link` 三个字段。
+文件名去掉 `.md` 就是它的 id（也用作页面锚点）。**项目不再走 Markdown，改由 `content/projects.json` 管理**，见下一节。
 
 保存后开发服务器会自动热更新。`.obsidian/` 已在 `.gitignore` 里 —— 它里面全是 json 和 md，若被提交，Tailwind v4 会把它们当源码扫描并产出非法 CSS 类。
 
@@ -98,6 +102,60 @@ tags: [随笔, 建站]
 **端到端延迟约 1–3 分钟**。这是 Git 方案固有的代价，换来的是内容永不丢失、有完整版本历史、零基础设施成本 —— 站点上没有任何写接口，也就没有任何需要保护的东西。
 
 > 每次 push 都会触发一次 Vercel 全站构建，所以不要把插件设成每次保存就推：高频推送会很快耗尽月度构建配额。
+
+## 项目工作台（/projects）
+
+所有项目只在 **`content/projects.json`** 里维护。`/projects` 的卡片网格、首页的项目计数、归档页、标签云全部读这一份文件，不需要再写 Markdown。
+
+一条项目长这样：
+
+```json
+{
+  "id": "windlog",
+  "title": "风与日记 · Windlog",
+  "summary": "卡片正面显示的一句话简介",
+  "status": "进行中",
+  "started": "2026-07-01",
+  "updated": "2026-11-05",
+  "stack": ["Next.js", "React", "TypeScript"],
+  "tags": ["静态站点", "Obsidian"],
+  "repo": "https://github.com/BoltzmannFactor/My-Haven-Niche",
+  "demo": "",
+  "icon": "🌬️",
+  "accent": 4,
+  "featured": true,
+  "source": "C:\\Users\\34580\\My-Haven-Niche"
+}
+```
+
+| 字段 | 必填 | 说明 |
+| --- | --- | --- |
+| `id` | 是 | 唯一标识，同时是卡片锚点（`/projects#id`） |
+| `title` / `summary` | 是 | 标题与卡片上的一句话简介 |
+| `status` | 否 | `进行中` / `维护中` / `已上线` / `搁置`，决定分组与排序 |
+| `started` / `updated` | 否 | `YYYY-MM-DD`；`updated` 会被自动同步刷新 |
+| `stack` / `tags` | 否 | 技术栈 chip、归档标签 |
+| `repo` / `demo` | 否 | 仓库 / 演示链接，有值才显示按钮 |
+| `icon` / `accent` | 否 | 卡片图标；`accent` 取 1–5，对应糖果色 `--pop-1..5` |
+| `featured` | 否 | `true` 置顶 |
+| `source` | 否 | **本地工程目录；填了才会被自动同步** |
+| `notes` | 否 | 项目长笔记（Markdown），折叠在卡片里；也可以改放 `content/projects/<id>.md` |
+
+### 自动同步
+
+```bash
+npm run sync:projects        # 只刷新 JSON，不提交
+npm run sync:projects:push   # 刷新 → 提交 → 推送（触发 Vercel 重建）
+```
+
+脚本 `scripts/sync-projects.mjs` 会对每个带 `source` 的条目：
+
+1. 用该目录 **git 最后一次提交时间**（不是 git 仓库则退回目录 mtime）刷新 `updated` —— 只往后推，不会把手写日期改旧；
+2. 读它的 `package.json` 刷新 `version`。
+
+WorkBuddy 里有一个每天 22:30 的定时任务跑 `npm run sync:projects:push`，所以本地项目只要有新提交，第二天站点上就是新的。
+
+> 本机 git 全局配了 `127.0.0.1:7897` 代理，代理没开时 push 会报 `schannel: failed to receive handshake`。脚本里已显式加 `-c http.proxy= -c https.proxy=` 绕过。
 
 ## 音乐播放
 

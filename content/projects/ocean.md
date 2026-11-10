@@ -1,12 +1,3 @@
----
-title: Ocean · 灵境房间
-summary: 一个用 Web 技术写、再套壳成 APK 的多房间沉浸式应用。
-date: 2026-08-21
-tags: [React, TypeScript, Capacitor]
-status: 维护中
-stack: [React, Vite, TypeScript, Capacitor]
----
-
 先有 Web 版，后用 Capacitor 打包成 Android APK 的一次尝试，目标机型是荣耀 X30 Max 这类大屏设备。
 
 ## 有趣的教训
