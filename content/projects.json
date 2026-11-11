@@ -1,7 +1,7 @@
 {
   "$comment": "项目工作台 —— 全站唯一数据源。改这里 = 改 /projects 页面；带 source 的条目由 scripts/sync-projects.mjs 每天自动刷新 updated / version。字段见 README「项目工作台」一节。",
   "version": 1,
-  "syncedAt": "2026-11-10",
+  "syncedAt": "2026-11-11",
   "projects": [
     {
       "id": "windlog",
@@ -9,7 +9,7 @@
       "summary": "你正在看的这个站：纯静态、双主题、在 Obsidian 里写完推上去就上线。",
       "status": "进行中",
       "started": "2026-07-01",
-      "updated": "2026-11-10",
+      "updated": "2026-11-11",
       "stack": ["Next.js", "React", "TypeScript", "Tailwind CSS"],
       "tags": ["Next.js", "静态站点", "Obsidian"],
       "repo": "https://github.com/BoltzmannFactor/My-Haven-Niche",
