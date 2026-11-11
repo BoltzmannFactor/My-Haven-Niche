@@ -5,32 +5,28 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
   useSyncExternalStore,
 } from 'react';
 import type { Track } from '../lib/music';
+import type { MouseEvent as ReactMouseEvent, KeyboardEvent as ReactKeyboardEvent } from 'react';
 
 const STORAGE_KEY = 'windlog-player';
 
 /**
- * 网易云官方外链播放器。
- * height 是精确匹配的：32 = 最小条，66 = 中等（带封面），其它值会渲染成 430 的列表大播放器。
- * auto=1 在多数桌面浏览器不生效（跨域 iframe 不继承父页面的用户激活），
- * 但写了无害，能省的只是一次点击。
+ * 网易云「外链直连」地址：对免费曲目（fee=0）会 302 到真实的 audio/mpeg，
+ * 于是播放器可以完全自绘 —— 不再嵌网易云的白色 iframe。
+ * 约束与外链 iframe 一致：会员曲拿不到直链，audio 会报错，界面上提示换一首即可。
  */
-function playerSrc(id: string, mobile: boolean): string {
-  const base = mobile
-    ? 'https://music.163.com/m/outchain/player'
-    : 'https://music.163.com/outchain/player';
-  return `${base}?type=2&id=${encodeURIComponent(id)}&auto=1&height=${mobile ? 32 : 66}`;
+function audioSrc(id: string): string {
+  return `https://music.163.com/song/media/outer/url?id=${encodeURIComponent(id)}.mp3`;
 }
 
-/**
- * 网易云在移动 UA 下会把桌面外链 302 到 http:// 的移动版地址，
- * 在 HTTPS 站点里 iframe 会因混合内容被拦而整块空白。
- * 这里直接判 UA 走 https 的移动版地址绕过那次跳转。
- */
-function isMobileUA(): boolean {
-  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+function formatTime(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds <= 0) return '0:00';
+  const min = Math.floor(seconds / 60);
+  const sec = Math.floor(seconds % 60);
+  return `${min}:${String(sec).padStart(2, '0')}`;
 }
 
 interface PlayerState {
@@ -38,7 +34,10 @@ interface PlayerState {
   tracks: Track[];
   index: number;
   visible: boolean;
-  collapsed: boolean;
+  /** 期望中的播放状态（真正的暂停/播放由 <audio> 同步） */
+  playing: boolean;
+  /** 当前曲目拿不到直链（下架 / 会员曲）时置真，切歌即清除 */
+  error: boolean;
 }
 
 const EMPTY_STATE: PlayerState = {
@@ -46,7 +45,8 @@ const EMPTY_STATE: PlayerState = {
   tracks: [],
   index: 0,
   visible: false,
-  collapsed: false,
+  playing: false,
+  error: false,
 };
 
 /*
@@ -61,8 +61,15 @@ let hydrated = false;
 
 function setState(next: PlayerState): void {
   state = next;
+  // 只持久化「在听哪张单、哪首」；playing/error 是运行时状态，恢复时一律从暂停开始
+  const snapshot = {
+    playlistId: next.playlistId,
+    tracks: next.tracks,
+    index: next.index,
+    visible: next.visible,
+  };
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
   } catch {
     // 隐私模式下写不进去，不影响播放
   }
@@ -91,10 +98,10 @@ function hydrate(): void {
       playlistId: typeof saved.playlistId === 'string' ? saved.playlistId : null,
       tracks,
       index: clampIndex(index, tracks.length),
-      // 只恢复「在听哪首」，不试图自动播放 —— 跨域 iframe 拿不到用户激活，
-      // 假装能自动续播只会让人困惑
+      // 只恢复「在听哪首」，不试图自动播放 —— 浏览器不允许无用户激活的自动出声
       visible: Boolean(saved.visible) && tracks.length > 0,
-      collapsed: Boolean(saved.collapsed),
+      playing: false,
+      error: false,
     };
   } catch {
     // 存档坏了或 localStorage 不可用，保持空状态即可
@@ -126,22 +133,30 @@ function play(playlistId: string, tracks: Track[], index: number): void {
     tracks,
     index: clampIndex(index, tracks.length),
     visible: tracks.length > 0,
-    collapsed: false,
+    playing: tracks.length > 0,
+    error: false,
   });
 }
 
 function step(delta: number): void {
   if (state.tracks.length === 0) return;
   const next = (state.index + delta + state.tracks.length) % state.tracks.length;
-  setState({ ...state, index: next, collapsed: false });
+  setState({ ...state, index: next, error: false });
+}
+
+function toggle(): void {
+  if (state.tracks.length === 0) return;
+  setState({ ...state, playing: !state.playing, error: false });
 }
 
 function close(): void {
-  setState({ ...state, visible: false });
+  setState({ ...state, visible: false, playing: false });
 }
 
-function toggleCollapsed(): void {
-  setState({ ...state, collapsed: !state.collapsed });
+/** 由 <audio> 的事件回调同步真实状态，只有不一致时才通知，避免循环渲染 */
+function syncPlaying(playing: boolean): void {
+  if (state.playing === playing) return;
+  setState({ ...state, playing });
 }
 
 export interface PlayerValue extends PlayerState {
@@ -149,8 +164,8 @@ export interface PlayerValue extends PlayerState {
   play: typeof play;
   next: () => void;
   prev: () => void;
+  toggle: typeof toggle;
   close: typeof close;
-  toggleCollapsed: typeof toggleCollapsed;
 }
 
 export function useMusicPlayer(): PlayerValue {
@@ -169,38 +184,38 @@ export function useMusicPlayer(): PlayerValue {
       play,
       next,
       prev,
+      toggle,
       close,
-      toggleCollapsed,
     }),
     [snapshot, next, prev]
-  );
-}
-
-/** 只在客户端为 true；SSR / 水合阶段返回 false，用来避免首帧渲染出不一致的 DOM */
-function useIsClient(): boolean {
-  return useSyncExternalStore(
-    () => () => {},
-    () => true,
-    () => false
-  );
-}
-
-function useIsMobile(): boolean {
-  return useSyncExternalStore(
-    () => () => {},
-    isMobileUA,
-    () => false
   );
 }
 
 export default function MusicPlayer() {
   const player = useMusicPlayer();
   const barRef = useRef<HTMLDivElement>(null);
-  const isClient = useIsClient();
-  const mobile = useIsMobile();
+  const audioRef = useRef<HTMLAudioElement>(null);
+  // 进度是纯展示状态，放本地 useState（由事件回调更新，不碰 effect setState）
+  const [progress, setProgress] = useState({ currentTime: 0, duration: 0 });
 
   const active = Boolean(player.visible && player.current);
-  const collapsed = player.collapsed;
+  const track = player.current;
+
+  // 曲目切换 / 期望播放状态变化 → 让 <audio> 对齐
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !track) return;
+    if (player.playing) {
+      audio.play().catch(() => {
+        // 自动续播被浏览器策略拦下（常见于「播完自动下一首」），
+        // 退回暂停态，让用户手动点一次
+        setState({ ...state, playing: false });
+      });
+    } else {
+      audio.pause();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在曲目或期望状态变化时对齐
+  }, [track?.netease, player.playing]);
 
   // 与 Navbar 同一套路：把实测高度写进 --player-h，页面底部留白跟随，
   // 关闭时归零，避免播放条压住正文最后几行。
@@ -228,14 +243,35 @@ export default function MusicPlayer() {
     const observer = new ResizeObserver(publish);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [active, collapsed, mobile, isClient]);
+  }, [active]);
 
-  if (!active || !player.current) return null;
+  const seek = (event: ReactMouseEvent<HTMLDivElement>) => {
+    const audio = audioRef.current;
+    if (!audio || !Number.isFinite(progress.duration) || progress.duration <= 0) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const ratio = Math.min(Math.max((event.clientX - rect.left) / rect.width, 0), 1);
+    audio.currentTime = ratio * progress.duration;
+  };
 
-  const track = player.current;
+  const seekByKeyboard = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    const audio = audioRef.current;
+    if (!audio || !Number.isFinite(progress.duration) || progress.duration <= 0) return;
+    if (event.key === 'ArrowRight') {
+      audio.currentTime = Math.min(audio.currentTime + 5, progress.duration);
+    } else if (event.key === 'ArrowLeft') {
+      audio.currentTime = Math.max(audio.currentTime - 5, 0);
+    } else {
+      return;
+    }
+    event.preventDefault();
+    setProgress((prev) => ({ ...prev, currentTime: audio.currentTime }));
+  };
+
+  if (!active || !track) return null;
+
   const hasMultiple = player.tracks.length > 1;
-  const frameHeight = mobile ? 32 : 66;
-  const neteaseUrl = `https://music.163.com/#/song?id=${encodeURIComponent(track.netease)}`;
+  const ratio =
+    progress.duration > 0 ? Math.min(progress.currentTime / progress.duration, 1) : 0;
 
   return (
     <div
@@ -244,87 +280,117 @@ export default function MusicPlayer() {
       aria-label="音乐播放器"
       className="fixed bottom-3 left-1/2 -translate-x-1/2 z-40 w-[min(42rem,calc(100%-1.5rem))] rounded-[2rem] border-2 border-[var(--card-border-strong)] bg-[var(--nav-bg)] shadow-[0_5px_0_var(--pop-shadow)] backdrop-blur-xl transition-colors duration-500"
     >
-      <div className="px-4 py-2.5">
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-0.5 shrink-0">
-            <button
-              type="button"
-              onClick={player.prev}
-              disabled={!hasMultiple}
-              aria-label="上一首"
-              className="player-btn hidden sm:inline-flex"
-            >
-              ⏮
-            </button>
-            <button
-              type="button"
-              onClick={player.next}
-              disabled={!hasMultiple}
-              aria-label="下一首"
-              className="player-btn"
-            >
-              ⏭
-            </button>
-            <a
-              href={neteaseUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={`在网易云打开《${track.title}》`}
-              className="player-btn hidden sm:inline-flex"
-            >
-              ↗
-            </a>
-            <button
-              type="button"
-              onClick={player.toggleCollapsed}
-              aria-label={collapsed ? '展开播放器' : '收起播放器'}
-              aria-expanded={!collapsed}
-              className="player-btn"
-            >
-              {collapsed ? '▴' : '▾'}
-            </button>
-            <button
-              type="button"
-              onClick={player.close}
-              aria-label="关闭播放器"
-              className="player-btn"
-            >
-              ✕
-            </button>
-          </div>
+      {/* 退出键：缩小挂在右上角 */}
+      <button
+        type="button"
+        onClick={player.close}
+        aria-label="关闭播放器"
+        className="absolute top-1.5 right-2.5 w-6 h-6 rounded-full border-2 border-[var(--card-border-strong)] bg-[var(--card-bg)] inline-flex items-center justify-center text-[10px] leading-none text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--nav-hover-bg)] transition-all duration-150"
+      >
+        ✕
+      </button>
 
-          {/* 收起时只留一行曲名，iframe 保持挂载（display:none 不会中断播放） */}
-          {collapsed ? (
-            <p className="flex-1 min-w-0 truncate text-xs font-light text-[var(--text-secondary)]">
-              ♪ {track.title}
-              {track.artist ? ` — ${track.artist}` : ''}
-            </p>
-          ) : (
-            <div className="flex-1 min-w-0">
-              {isClient ? (
-                <iframe
-                  key={track.netease}
-                  src={playerSrc(track.netease, mobile)}
-                  title={`网易云音乐播放器：${track.title}`}
-                  width="100%"
-                  height={frameHeight}
-                  frameBorder="0"
-                  allow="autoplay; encrypted-media"
-                  className="w-full block"
-                />
-              ) : (
-                <div style={{ height: frameHeight }} aria-hidden="true" />
-              )}
-            </div>
-          )}
+      <div className="pl-5 pr-11 py-3 flex items-center gap-3">
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            type="button"
+            onClick={player.prev}
+            disabled={!hasMultiple}
+            aria-label="上一首"
+            className="player-btn"
+          >
+            ⏮
+          </button>
+          <button
+            type="button"
+            onClick={player.toggle}
+            aria-label={player.playing ? '暂停' : '播放'}
+            className="player-btn h-9 min-w-[2.25rem] text-sm"
+          >
+            {player.playing ? '⏸' : '▶'}
+          </button>
+          <button
+            type="button"
+            onClick={player.next}
+            disabled={!hasMultiple}
+            aria-label="下一首"
+            className="player-btn"
+          >
+            ⏭
+          </button>
         </div>
 
-        {!collapsed && (
-          <p aria-live="polite" className="mt-1 text-[10px] font-light text-[var(--text-faint)]">
-            换歌会让播放器重新载入；若没有自动响起，点一下播放器上的 ▶
-          </p>
-        )}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline gap-2 min-w-0">
+            <p className="truncate text-sm font-bold text-[var(--text-primary)]">
+              {track.title}
+            </p>
+            {track.artist && (
+              <p className="truncate text-xs font-light text-[var(--text-secondary)]">
+                {track.artist}
+              </p>
+            )}
+          </div>
+
+          <div className="mt-1.5 flex items-center gap-2">
+            <div
+              role="slider"
+              aria-label="播放进度"
+              aria-valuemin={0}
+              aria-valuemax={Math.round(progress.duration)}
+              aria-valuenow={Math.round(progress.currentTime)}
+              tabIndex={0}
+              onClick={seek}
+              onKeyDown={seekByKeyboard}
+              className="flex-1 h-2 rounded-full bg-[var(--card-bg-hover)] cursor-pointer overflow-hidden"
+            >
+              <div
+                className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-150"
+                style={{ width: `${ratio * 100}%` }}
+              />
+            </div>
+            {progress.duration > 0 && (
+              <span className="flex-none text-[10px] tabular-nums text-[var(--text-faint)]">
+                {formatTime(progress.currentTime)} / {formatTime(progress.duration)}
+              </span>
+            )}
+          </div>
+        </div>
       </div>
+
+      {player.error && (
+        <p className="px-5 pb-2 -mt-0.5 text-[10px] font-light text-[var(--accent)]">
+          这一首可能已下架或需要会员，换个 ▶ 试试上一首 / 下一首
+        </p>
+      )}
+
+      {/* 音频引擎：无 controls 不占版面；src 换曲即重载 */}
+      <audio
+        ref={audioRef}
+        src={audioSrc(track.netease)}
+        preload="metadata"
+        onPlay={() => syncPlaying(true)}
+        onPause={() => syncPlaying(false)}
+        onEnded={() => {
+          if (player.tracks.length > 1) step(1);
+          else setState({ ...state, playing: false });
+        }}
+        onTimeUpdate={(event) =>
+          setProgress((prev) => ({ ...prev, currentTime: event.currentTarget.currentTime }))
+        }
+        onLoadedMetadata={(event) => {
+          const duration = event.currentTarget.duration;
+          setProgress((prev) => ({
+            ...prev,
+            duration: Number.isFinite(duration) ? duration : 0,
+          }));
+        }}
+        onEmptied={() => setProgress({ currentTime: 0, duration: 0 })}
+        onError={() => {
+          setProgress({ currentTime: 0, duration: 0 });
+          setState({ ...state, playing: false, error: true });
+        }}
+      />
     </div>
   );
 }

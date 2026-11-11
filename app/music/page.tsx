@@ -64,8 +64,8 @@ export default function MusicPage() {
       )}
 
       <p className="mt-12 text-xs font-light text-[var(--text-faint)] leading-relaxed">
-        播放用的是网易云官方外链播放器。它对 VIP 曲目是静默失败的 —— 点了播放没反应，
-        也不报错，所以歌单里放的都是能免费播放的版本。
+        播放直接走网易云的外链音频直连，进度、切歌都在本站完成。VIP 曲目拿不到直链 ——
+        点了会提示错误，所以歌单里放的都是能免费播放的版本。
       </p>
     </div>
   );

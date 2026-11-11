@@ -87,6 +87,24 @@ function readVersion(dir) {
   }
 }
 
+/**
+ * JSON.stringify(data, null, 2) 会把 ["React","Vite"] 拆成 4 行，
+ * 每天同步一次就产生几十行无意义 diff。这里把「短的原生值数组」压回单行。
+ */
+function formatJson(data) {
+  const pretty = JSON.stringify(data, null, 2);
+  return pretty.replace(/\[\s+([^[\]{}]*?)\s+\]/g, (match, inner) => {
+    const parts = inner
+      .split(/,\s*\n\s*/)
+      .map((part) => part.trim())
+      .filter(Boolean);
+    if (parts.length === 0) return '[]';
+    if (parts.some((part) => part.includes('\n') || part.length > 40)) return match;
+    const oneLine = `[${parts.join(', ')}]`;
+    return oneLine.length <= 88 ? oneLine : match;
+  });
+}
+
 function main() {
   if (!fs.existsSync(MANIFEST)) {
     warn(`✗ 找不到 ${MANIFEST}`);
@@ -141,7 +159,7 @@ function main() {
     return;
   }
 
-  fs.writeFileSync(MANIFEST, `${JSON.stringify(data, null, 2)}\n`, 'utf8');
+  fs.writeFileSync(MANIFEST, `${formatJson(data)}\n`, 'utf8');
   log(`✓ 已写回 ${path.relative(ROOT, MANIFEST)}`);
 
   if (!PUSH) {
@@ -158,10 +176,16 @@ function main() {
   git(['commit', '-m', `chore(projects): 自动同步 ${dayOf(new Date())}`, '--', 'content/projects.json']);
   log('✓ 已提交');
 
-  try {
-    git(['-c', 'http.proxy=', '-c', 'https.proxy=', 'pull', '--rebase', '--autostash', 'origin', 'main']);
-  } catch (error) {
-    warn(`! 拉取远端失败，先推送试试：${error.message.split('\n')[0]}`);
+  // ⚠️ 这里刻意不做自动 pull --rebase / --autostash：
+  // 本机的 safe-delete 钩子会拦截 git 内部的删除操作，历史上曾把 .git 整个搞丢。
+  // 只做「取远端 → 判断是否落后」，落后就交给人工处理。
+  git(['-c', 'http.proxy=', '-c', 'https.proxy=', 'fetch', 'origin', 'main']);
+
+  const behind = Number(git(['rev-list', '--count', 'HEAD..origin/main'])) || 0;
+  if (behind > 0) {
+    warn(`! 远端比你多 ${behind} 个提交，先手动 git pull --rebase 再同步（已跳过推送）。`);
+    process.exitCode = 1;
+    return;
   }
 
   git(['-c', 'http.proxy=', '-c', 'https.proxy=', 'push', 'origin', 'main']);
