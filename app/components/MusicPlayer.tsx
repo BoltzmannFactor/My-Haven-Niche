@@ -153,12 +153,11 @@ function close(): void {
   setState({ ...state, visible: false, playing: false });
 }
 
-/** 由 <audio> 的事件回调同步真实状态，只有不一致时才通知，避免循环渲染 */
-function syncPlaying(playing: boolean): void {
-  if (state.playing === playing) return;
-  setState({ ...state, playing });
-}
-
+/*
+ * 播放状态以 store 里的 playing 为准，不再监听 <audio> 的 play/pause 事件回写：
+ * 换曲时浏览器会先触发一次 pause（旧音源被中断），回写会把「正在播放」误判成暂停，
+ * 于是下一首刚加载就被 effect 立刻暂停。
+ */
 export interface PlayerValue extends PlayerState {
   current: Track | null;
   play: typeof play;
@@ -285,7 +284,7 @@ export default function MusicPlayer() {
         type="button"
         onClick={player.close}
         aria-label="关闭播放器"
-        className="absolute top-1.5 right-2.5 w-6 h-6 rounded-full border-2 border-[var(--card-border-strong)] bg-[var(--card-bg)] inline-flex items-center justify-center text-[10px] leading-none text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--nav-hover-bg)] transition-all duration-150"
+        className="absolute top-1.5 right-2 w-[22px] h-[22px] rounded-full border-2 border-transparent inline-flex items-center justify-center text-[10px] leading-none text-[var(--text-faint)] hover:text-[var(--text-primary)] hover:border-[var(--card-border-strong)] hover:bg-[var(--card-bg)] transition-all duration-150"
       >
         ✕
       </button>
@@ -342,7 +341,7 @@ export default function MusicPlayer() {
               tabIndex={0}
               onClick={seek}
               onKeyDown={seekByKeyboard}
-              className="flex-1 h-2 rounded-full bg-[var(--card-bg-hover)] cursor-pointer overflow-hidden"
+              className="flex-1 h-2 rounded-full bg-[var(--divider)] cursor-pointer overflow-hidden"
             >
               <div
                 className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-150"
@@ -369,15 +368,17 @@ export default function MusicPlayer() {
         ref={audioRef}
         src={audioSrc(track.netease)}
         preload="metadata"
-        onPlay={() => syncPlaying(true)}
-        onPause={() => syncPlaying(false)}
         onEnded={() => {
           if (player.tracks.length > 1) step(1);
           else setState({ ...state, playing: false });
         }}
-        onTimeUpdate={(event) =>
-          setProgress((prev) => ({ ...prev, currentTime: event.currentTarget.currentTime }))
-        }
+        onTimeUpdate={(event) => {
+          // 必须先取出数值：React 事件对象在回调结束后会把 currentTarget 置空，
+          // 而 setProgress 的更新函数是稍后执行的，那里再读就是 TypeError
+          // （曾经因为这一行整个播放条崩掉，表现为「点了没反应」）
+          const currentTime = event.currentTarget.currentTime;
+          setProgress((prev) => ({ ...prev, currentTime }));
+        }}
         onLoadedMetadata={(event) => {
           const duration = event.currentTarget.duration;
           setProgress((prev) => ({
